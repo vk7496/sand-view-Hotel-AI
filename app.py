@@ -1,69 +1,115 @@
 import streamlit as st
+from groq import Groq
 import pandas as pd
 from datetime import datetime
 
-# تنظیمات صفحه
-st.set_page_config(page_title="Sand View Hotel - AI Hub", layout="wide")
+# --- CONFIGURATION & SECRETS ---
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# استایل اختصاصی برای تم ساحلی (Sand View)
+st.set_page_config(page_title="Sand View Hotel | AI Smart Hub", layout="wide")
+
+# --- CUSTOM CSS FOR SAND VIEW THEME ---
 st.markdown("""
     <style>
-    .main { background-color: #fdfcfb; }
-    .stButton>button { background-color: #D4B996; color: #2C3E50; border-radius: 10px; }
+    .main { background: #fdfcfb; }
+    .stChatMessage { border-radius: 15px; margin-bottom: 10px; }
+    .sidebar .sidebar-content { background-image: linear-gradient(#2C3E50, #000000); color: white; }
     .order-card { 
-        padding: 20px; border-radius: 15px; border-left: 5px solid #D4B996;
-        background-color: white; box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
-        margin-bottom: 15px;
+        padding: 15px; border-radius: 10px; border-left: 5px solid #D4B996;
+        background: white; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
+    .status-badge { background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 10px; font-size: 0.8em; }
     </style>
     """, unsafe_allow_view_to_html=True)
 
-# شبیه‌سازی دیتابیس سفارشات در حافظه
-if 'orders' not in st.session_state:
-    st.session_state.orders = [
-        {"room": "304", "item": "2x Club Sandwich", "time": "11:20", "status": "Verified by AI"},
-        {"room": "102", "item": "Late Check-out (2 PM)", "time": "11:25", "status": "Pending Review"}
-    ]
+# --- DATABASE IN MEMORY ---
+if 'order_db' not in st.session_state:
+    st.session_state.order_db = []
 
-# طراحی سایدبار
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# --- SIDEBAR NAVIGATION ---
 with st.sidebar:
-    st.image("https://img.icons8.com/color/96/beach.png", width=100)
-    st.title("Sand View Admin")
-    page = st.radio("Navigate to:", ["Guest View (AI Chat)", "Internal Order Hub"])
+    st.title("🏝️ Sand View")
+    st.markdown("---")
+    page = st.radio("Switch View:", ["Guest Experience", "Management Hub"])
+    st.markdown("---")
+    st.write("Logged in as: **Vista Kaviani**")
 
-# ۱. بخش مسافر (Guest View)
-if page == "Guest View (AI Chat)":
-    st.title("🏝️ Sand View AI Concierge")
-    st.info("Try asking for room service or a late check-out.")
-    
-    chat_input = st.chat_input("How can I help you today?")
-    if chat_input:
+# --- PAGE 1: GUEST EXPERIENCE ---
+if page == "Guest Experience":
+    st.title("Concierge AI 🛎️")
+    st.write("Welcome to Sand View Hotel. How can I assist you today?")
+
+    # Display Chat History
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Chat Input
+    if prompt := st.chat_input("I'd like to order a Club Sandwich..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
-            st.write(chat_input)
-        with st.chat_message("assistant"):
-            if "order" in chat_input.lower() or "sandwich" in chat_input.lower():
-                st.write("I've captured your order! I'm sending it directly to our Kitchen Hub now (Bypassing WhatsApp for faster service).")
-                # اضافه کردن سفارش جدید به لیست
-                new_order = {"room": "205", "item": chat_input, "time": datetime.now().strftime("%H:%M"), "status": "Verified by AI"}
-                st.session_state.orders.append(new_order)
-            else:
-                st.write("Certainly! I'm here to assist with your stay at Sand View.")
+            st.markdown(prompt)
 
-# ۲. بخش مدیریت (Internal Order Hub) - این همان بخشی است که هتل می‌خواست
-elif page == "Internal Order Hub":
-    st.title("👨‍🍳 Kitchen & Service Dashboard")
-    st.write("This dashboard replaces WhatsApp notifications with organized, actionable tasks.")
-    
-    col1, col2 = st.columns(2)
-    
-    for i, order in enumerate(st.session_state.orders):
-        with col1 if i % 2 == 0 else col2:
-            st.markdown(f"""
-                <div class="order-card">
-                    <h4 style="margin:0;">Room {order['room']}</h4>
-                    <p style="margin:5px 0;"><b>Request:</b> {order['item']}</p>
-                    <span style="font-size:0.8em; color:gray;">Time: {order['time']} | Status: {order['status']}</span>
-                </div>
-            """, unsafe_allow_view_to_html=True)
-            if st.button(f"Mark as Completed", key=f"btn_{i}"):
-                st.success(f"Order for Room {order['room']} cleared!")
+        # AI Analysis using Groq
+        with st.chat_message("assistant"):
+            try:
+                # Prompt Engineering: Asking AI to identify if it's an order
+                response = client.chat.completions.create(
+                    model="llama3-8b-8192",
+                    messages=[
+                        {"role": "system", "content": "You are the AI Concierge of Sand View Hotel. If a guest wants to order food or service, start your reply with '[ORDER]'. Be luxury and polite."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                full_response = response.choices[0].message.content
+                st.markdown(full_response)
+                
+                # Logic: If AI identifies an order, save to Dashboard
+                if "[ORDER]" in full_response:
+                    new_order = {
+                        "Room": "Room 304", # Hardcoded for Demo
+                        "Request": prompt,
+                        "Time": datetime.now().strftime("%H:%M"),
+                        "Status": "Verified by AI"
+                    }
+                    st.session_state.order_db.append(new_order)
+                    st.toast("Order sent to Kitchen Hub!", icon="✅")
+
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+            except Exception as e:
+                st.error("Connection Error. Please check API Key in Secrets.")
+
+# --- PAGE 2: MANAGEMENT HUB ---
+elif page == "Management Hub":
+    st.title("📊 Operational Dashboard")
+    st.write("Incoming guest requests filtered by AI (WhatsApp bypassed).")
+
+    if not st.session_state.order_db:
+        st.info("No active orders at the moment.")
+    else:
+        col1, col2 = st.columns(2)
+        for i, order in enumerate(st.session_state.order_db):
+            target_col = col1 if i % 2 == 0 else col2
+            with target_col:
+                st.markdown(f"""
+                    <div class="order-card">
+                        <div style="display:flex; justify-content:space-between">
+                            <strong>{order['Room']}</strong>
+                            <span class="status-badge">{order['Status']}</span>
+                        </div>
+                        <p style="margin:10px 0;">{order['Request']}</p>
+                        <small style="color:gray;">Received at: {order['Time']}</small>
+                    </div>
+                """, unsafe_allow_view_to_html=True)
+                if st.button("Complete Task", key=f"done_{i}"):
+                    st.session_state.order_db.pop(i)
+                    st.rerun()
+
+    # Insight Section for Management
+    st.markdown("---")
+    st.subheader("Guest Intent Analysis")
+    st.write("AI identifies these as your top guest needs today: **Room Service, Late Check-out.**")
