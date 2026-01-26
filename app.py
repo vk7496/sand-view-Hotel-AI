@@ -11,16 +11,17 @@ st.set_page_config(page_title="Sand View Hotel | AI Smart Hub", layout="wide")
 # --- CUSTOM CSS FOR SAND VIEW THEME ---
 st.markdown("""
     <style>
-    .main { background: #fdfcfb; }
+    .stApp { background: #fdfcfb; }
     .stChatMessage { border-radius: 15px; margin-bottom: 10px; }
-    .sidebar .sidebar-content { background-image: linear-gradient(#2C3E50, #000000); color: white; }
+    [data-testid="stSidebar"] { background-image: linear-gradient(#2C3E50, #000000); color: white; }
     .order-card { 
         padding: 15px; border-radius: 10px; border-left: 5px solid #D4B996;
         background: white; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        color: #2C3E50;
     }
     .status-badge { background: #e8f5e9; color: #2e7d32; padding: 3px 8px; border-radius: 10px; font-size: 0.8em; }
     </style>
-    """, unsafe_allow_view_to_html=True)
+    """, unsafe_allow_html=True) # اصلاح شده: پارامتر صحیح این است
 
 # --- DATABASE IN MEMORY ---
 if 'order_db' not in st.session_state:
