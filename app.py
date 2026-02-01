@@ -18,7 +18,7 @@ LIVE_DB = "orders_live.csv"
 ARCHIVE_DB = "orders_archive.csv"
 SETTINGS_FILE = "settings.json"
 
-# --- 2. CORE LOGIC ---
+# --- 2. LOGIC ---
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as f: return json.load(f)
@@ -57,11 +57,8 @@ st.markdown(f"""
     }}
     .order-card-live * {{ color: #1c2d66 !important; text-shadow: none !important; }}
     .id-badge {{ background-color: #d4b996; color: white !important; padding: 3px 10px; border-radius: 6px; font-weight: bold; }}
-    .sidebar-footer {{
-        margin-top: 30px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);
-        font-size: 0.85rem; color: rgba(255,255,255,0.7) !important; text-align: center;
-    }}
     .translation-text {{ color: #d4b996 !important; font-style: italic; font-weight: bold; margin-top: 5px; display: block; }}
+    .sidebar-footer {{ margin-top: 30px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); font-size: 0.85rem; color: rgba(255,255,255,0.7) !important; text-align: center; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -77,7 +74,7 @@ with st.sidebar:
     page = st.radio("Navigation", ["Guest Experience", "Digital Menu", "Staff Dashboard", "Management Reports"])
     st.markdown(f'<div class="sidebar-footer">Prepared by:<br><b>Vista Kaviani</b><br>AI Solutions Developer<br>Vistakavianii@gmail.com</div>', unsafe_allow_html=True)
 
-# --- 5. PAGE: GUEST EXPERIENCE (With Auto-Translation) ---
+# --- 5. PAGE: GUEST EXPERIENCE ---
 if page == "Guest Experience":
     if not st.session_state.user_data:
         st.markdown("<h1 style='font-size:3.5rem;'>Sand View Hotel</h1>", unsafe_allow_html=True)
@@ -92,40 +89,40 @@ if page == "Guest Experience":
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]): st.write(msg["content"])
 
-        if prompt := st.chat_input("How can I help you? / كيف يمكنني مساعدتك؟"):
+        if prompt := st.chat_input("How can I help you?"):
             st.session_state.chat_history.append({"role": "user", "content": prompt})
             
+            # کلمات کلیدی برای تشخیص سفارش (فارسی، عربی، انگلیسی)
+            keywords = ['want', 'need', 'order', 'bring', 'taxi', 'water', 'towel', 'clean', 'food', 'breakfast', 'آب', 'حوله', 'نظافت', 'تاکسی', 'غذا', 'سفارش', 'أريد', 'ماء', 'تنظيف', 'فطور']
+            is_req = any(w in prompt.lower() for w in keywords)
+
             try:
                 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-                # گام اول: تشخیص نیت و ترجمه همزمان
-                intel_res = client.chat.completions.create(
+                # فقط برای ترجمه از AI استفاده می‌کنیم
+                trans_res = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
-                    messages=[{"role": "system", "content": "Analyze the input. 1. Is it a request/order (Yes/No)? 2. Provide a concise English translation of the request. Reply format: ORDER_STATUS | TRANSLATION"}, 
+                    messages=[{"role": "system", "content": "Translate the user's request to English. Only provide the translation, nothing else."}, 
                               {"role": "user", "content": prompt}]
                 )
-                intel_data = intel_res.choices[0].message.content.split("|")
-                is_order = "YES" in intel_data[0].upper()
-                translated_text = intel_data[1].strip() if len(intel_data) > 1 else prompt
+                translated_text = trans_res.choices[0].message.content.strip()
 
-                # گام دوم: پاسخ صمیمی به مسافر به زبان خودش
+                # پاسخ مستقیم به مشتری
                 res = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
-                    messages=[{"role": "system", "content": "Friendly hotel AI. Reply politely in the user's language."}, 
+                    messages=[{"role": "system", "content": "You are a friendly hotel concierge. Confirm the guest's request briefly in their language."}, 
                               {"role": "user", "content": prompt}]
                 )
                 ai_msg = res.choices[0].message.content
             except:
-                is_order = True; translated_text = prompt; ai_msg = "Request received! Staff notified."
+                translated_text = prompt; ai_msg = "Request received! Staff notified."
 
-            if is_order:
+            if is_req:
                 order_id = generate_order_id()
                 ai_msg += f"\n\n✅ **ID: {order_id}**"
-                # ذخیره متن اصلی + ترجمه انگلیسی برای پرسنل
-                final_request_log = f"{prompt} | 🔠 Translation: {translated_text}"
+                final_req = f"{prompt} | 🔠 Translation: {translated_text}"
                 now_o = datetime.now(oman_tz)
-                data = {"ID": order_id, "Date": now_o.strftime("%Y-%m-%d"), "Time": now_o.strftime("%H:%M"), "Room": st.session_state.user_data['room'], "Guest": st.session_state.user_data['name'], "Request": final_request_log}
-                save_order(data, LIVE_DB)
-                save_order(data, ARCHIVE_DB)
+                data = {"ID": order_id, "Date": now_o.strftime("%Y-%m-%d"), "Time": now_o.strftime("%H:%M"), "Room": st.session_state.user_data['room'], "Guest": st.session_state.user_data['name'], "Request": final_req}
+                save_order(data, LIVE_DB); save_order(data, ARCHIVE_DB)
                 st.toast(f"Order {order_id} sent!")
 
             st.session_state.chat_history.append({"role": "assistant", "content": ai_msg})
@@ -134,7 +131,7 @@ if page == "Guest Experience":
 # --- 6. PAGE: DIGITAL MENU ---
 elif page == "Digital Menu":
     st.markdown("<h1>📖 Digital Menu</h1>", unsafe_allow_html=True)
-    st.info("Cafe & Restaurant items are available for 24/7 room service.")
+    st.markdown("### ☕ Cafe\n- Omani Coffee: 1.500 OMR\n### 🍽️ Food\n- Grilled Kingfish: 7.500 OMR")
 
 # --- 7. PAGE: STAFF DASHBOARD ---
 elif page == "Staff Dashboard":
@@ -145,20 +142,11 @@ elif page == "Staff Dashboard":
             st.markdown("""<audio autoplay><source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg"></audio>""", unsafe_allow_html=True)
             st.session_state.last_order_count = len(df_live)
 
-        if df_live.empty: st.info("Waiting for requests...")
+        if df_live.empty: st.info("Waiting for orders...")
         else:
             for i, row in df_live.iterrows():
-                # جدا کردن متن اصلی و ترجمه برای نمایش بهتر
                 parts = row['Request'].split("|")
-                original = parts[0]
-                trans = parts[1] if len(parts) > 1 else ""
-                
-                st.markdown(f"""<div class="order-card-live">
-                    <span class="id-badge">{row['ID']}</span> <b>Room {row['Room']}</b> | {row['Guest']}<br>
-                    <b>Original:</b> {original}<br>
-                    <span class="translation-text">{trans}</span>
-                    <br><small>{row['Time']} (Oman)</small></div>""", unsafe_allow_html=True)
-                
+                st.markdown(f"""<div class="order-card-live"><span class="id-badge">{row['ID']}</span> <b>Room {row['Room']}</b> | {row['Guest']}<br><b>Original:</b> {parts[0]}<br><span class="translation-text">{parts[1] if len(parts)>1 else ""}</span></div>""", unsafe_allow_html=True)
                 if st.button(f"Mark Done {row['ID']}", key=f"s_{row['ID']}"):
                     pd.read_csv(LIVE_DB).drop(i).to_csv(LIVE_DB, index=False)
                     st.session_state.last_order_count = max(0, st.session_state.last_order_count - 1)
@@ -169,14 +157,14 @@ elif page == "Staff Dashboard":
 elif page == "Management Reports":
     st.markdown("<h1>📊 Management</h1>", unsafe_allow_html=True)
     if st.text_input("Manager Password", type="password") == settings["admin_pwd"]:
-        t1, t2 = st.tabs(["Reports", "Security"])
+        t1, t2 = st.tabs(["Weekly Report", "Security"])
         with t1:
             if os.path.exists(ARCHIVE_DB):
                 df_all = pd.read_csv(ARCHIVE_DB)
-                st.dataframe(df_all, use_container_width=True)
+                st.dataframe(df_all)
         with t2:
             ns = st.text_input("New Staff PWD", value=settings["staff_pwd"])
             na = st.text_input("New Admin PWD", value=settings["admin_pwd"])
-            if st.button("Update Passwords"):
+            if st.button("Update"):
                 save_settings({"staff_pwd": ns, "admin_pwd": na})
                 st.success("Updated!")
