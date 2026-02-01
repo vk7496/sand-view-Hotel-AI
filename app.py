@@ -61,7 +61,7 @@ st.markdown(f"""
         margin-top: 30px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);
         font-size: 0.85rem; color: rgba(255,255,255,0.7) !important; text-align: center;
     }}
-    .menu-box {{ background: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px; border: 1px solid #d4b996; }}
+    .translation-text {{ color: #d4b996 !important; font-style: italic; font-weight: bold; margin-top: 5px; display: block; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -77,7 +77,7 @@ with st.sidebar:
     page = st.radio("Navigation", ["Guest Experience", "Digital Menu", "Staff Dashboard", "Management Reports"])
     st.markdown(f'<div class="sidebar-footer">Prepared by:<br><b>Vista Kaviani</b><br>AI Solutions Developer<br>Vistakavianii@gmail.com</div>', unsafe_allow_html=True)
 
-# --- 5. PAGE: GUEST EXPERIENCE (Multi-Language Support) ---
+# --- 5. PAGE: GUEST EXPERIENCE (With Auto-Translation) ---
 if page == "Guest Experience":
     if not st.session_state.user_data:
         st.markdown("<h1 style='font-size:3.5rem;'>Sand View Hotel</h1>", unsafe_allow_html=True)
@@ -86,8 +86,7 @@ if page == "Guest Experience":
         if st.button("Enter / دخول"):
             if u_name and u_room:
                 st.session_state.user_data = {"name": u_name, "room": u_room}
-                st.balloons()
-                st.rerun()
+                st.balloons(); st.rerun()
     else:
         st.markdown(f"<h3>Welcome, {st.session_state.user_data['name']} (Room {st.session_state.user_data['room']})</h3>", unsafe_allow_html=True)
         for msg in st.session_state.chat_history:
@@ -96,99 +95,88 @@ if page == "Guest Experience":
         if prompt := st.chat_input("How can I help you? / كيف يمكنني مساعدتك؟"):
             st.session_state.chat_history.append({"role": "user", "content": prompt})
             
-            # هوش مصنوعی برای تشخیص هر نوع زبان (فارسی، عربی، انگلیسی)
             try:
                 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-                # سیستم را مجبور می‌کنیم تشخیص دهد آیا این یک درخواست سرویس است یا خیر
-                check_res = client.chat.completions.create(
+                # گام اول: تشخیص نیت و ترجمه همزمان
+                intel_res = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
-                    messages=[{"role": "system", "content": "Analyze the user input. If it is a request for any hotel service, food, water, cleaning, or taxi in ANY language (Persian, Arabic, English), reply with only the word 'ORDER'. Otherwise reply 'CHAT'."}, 
+                    messages=[{"role": "system", "content": "Analyze the input. 1. Is it a request/order (Yes/No)? 2. Provide a concise English translation of the request. Reply format: ORDER_STATUS | TRANSLATION"}, 
                               {"role": "user", "content": prompt}]
                 )
-                intent = check_res.choices[0].message.content.strip()
+                intel_data = intel_res.choices[0].message.content.split("|")
+                is_order = "YES" in intel_data[0].upper()
+                translated_text = intel_data[1].strip() if len(intel_data) > 1 else prompt
 
+                # گام دوم: پاسخ صمیمی به مسافر به زبان خودش
                 res = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
-                    messages=[{"role": "system", "content": "You are a friendly hotel concierge. Respond in the SAME language as the guest."}, 
+                    messages=[{"role": "system", "content": "Friendly hotel AI. Reply politely in the user's language."}, 
                               {"role": "user", "content": prompt}]
                 )
                 ai_msg = res.choices[0].message.content
             except:
-                intent = "ORDER" # در صورت خطا، جانب احتیاط را رعایت می‌کنیم
-                ai_msg = "Request received! Staff notified."
+                is_order = True; translated_text = prompt; ai_msg = "Request received! Staff notified."
 
-            if "ORDER" in intent.upper():
+            if is_order:
                 order_id = generate_order_id()
                 ai_msg += f"\n\n✅ **ID: {order_id}**"
+                # ذخیره متن اصلی + ترجمه انگلیسی برای پرسنل
+                final_request_log = f"{prompt} | 🔠 Translation: {translated_text}"
                 now_o = datetime.now(oman_tz)
-                data = {"ID": order_id, "Date": now_o.strftime("%Y-%m-%d"), "Time": now_o.strftime("%H:%M"), "Room": st.session_state.user_data['room'], "Guest": st.session_state.user_data['name'], "Request": prompt}
+                data = {"ID": order_id, "Date": now_o.strftime("%Y-%m-%d"), "Time": now_o.strftime("%H:%M"), "Room": st.session_state.user_data['room'], "Guest": st.session_state.user_data['name'], "Request": final_request_log}
                 save_order(data, LIVE_DB)
                 save_order(data, ARCHIVE_DB)
-                st.toast(f"Request {order_id} sent!")
+                st.toast(f"Order {order_id} sent!")
 
             st.session_state.chat_history.append({"role": "assistant", "content": ai_msg})
             st.rerun()
 
 # --- 6. PAGE: DIGITAL MENU ---
 elif page == "Digital Menu":
-    st.markdown("<h1>📖 Digital Menu / القائمة الرقمية</h1>", unsafe_allow_html=True)
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("""<div class="menu-box"><h3>☕ Cafe & Bar</h3>
-        - Omani Coffee Special: 1.500 OMR<br>
-        - Fresh Mango Juice: 2.200 OMR<br>
-        - Karak Tea: 0.800 OMR<br>
-        - Espresso: 1.200 OMR</div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown("""<div class="menu-box"><h3>🍽️ Restaurant</h3>
-        - Grilled Kingfish: 7.500 OMR<br>
-        - Chicken Kabuli: 5.500 OMR<br>
-        - Arabic Mezze Platter: 4.000 OMR<br>
-        - Club Sandwich: 3.500 OMR</div>""", unsafe_allow_html=True)
+    st.markdown("<h1>📖 Digital Menu</h1>", unsafe_allow_html=True)
+    st.info("Cafe & Restaurant items are available for 24/7 room service.")
 
 # --- 7. PAGE: STAFF DASHBOARD ---
 elif page == "Staff Dashboard":
-    st.markdown("<h1>🛎️ Staff Hub</h1>", unsafe_allow_html=True)
-    pwd_input = st.text_input("Staff Password", type="password")
-    if pwd_input == settings["staff_pwd"]:
+    st.markdown("<h1>🛎️ Reception Desk</h1>", unsafe_allow_html=True)
+    if st.text_input("Staff Password", type="password") == settings["staff_pwd"]:
         df_live = pd.read_csv(LIVE_DB)
         if len(df_live) > st.session_state.last_order_count:
             st.markdown("""<audio autoplay><source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg"></audio>""", unsafe_allow_html=True)
             st.session_state.last_order_count = len(df_live)
 
-        if df_live.empty: st.info("No active orders.")
+        if df_live.empty: st.info("Waiting for requests...")
         else:
             for i, row in df_live.iterrows():
-                st.markdown(f"""<div class="order-card-live"><span class="id-badge">{row['ID']}</span> <b>Room {row['Room']}</b> | {row['Guest']}<br>Request: {row['Request']}<br><small>{row['Time']} (Oman)</small></div>""", unsafe_allow_html=True)
+                # جدا کردن متن اصلی و ترجمه برای نمایش بهتر
+                parts = row['Request'].split("|")
+                original = parts[0]
+                trans = parts[1] if len(parts) > 1 else ""
+                
+                st.markdown(f"""<div class="order-card-live">
+                    <span class="id-badge">{row['ID']}</span> <b>Room {row['Room']}</b> | {row['Guest']}<br>
+                    <b>Original:</b> {original}<br>
+                    <span class="translation-text">{trans}</span>
+                    <br><small>{row['Time']} (Oman)</small></div>""", unsafe_allow_html=True)
+                
                 if st.button(f"Mark Done {row['ID']}", key=f"s_{row['ID']}"):
                     pd.read_csv(LIVE_DB).drop(i).to_csv(LIVE_DB, index=False)
                     st.session_state.last_order_count = max(0, st.session_state.last_order_count - 1)
                     st.rerun()
-        time.sleep(5)
-        st.rerun()
+        time.sleep(5); st.rerun()
 
-# --- 8. PAGE: MANAGEMENT & ARCHIVE ---
+# --- 8. PAGE: MANAGEMENT ---
 elif page == "Management Reports":
-    st.markdown("<h1>📊 Management Panel</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>📊 Management</h1>", unsafe_allow_html=True)
     if st.text_input("Manager Password", type="password") == settings["admin_pwd"]:
-        t1, t2 = st.tabs(["Reports & Downloads", "Security Settings"])
-        
+        t1, t2 = st.tabs(["Reports", "Security"])
         with t1:
             if os.path.exists(ARCHIVE_DB):
                 df_all = pd.read_csv(ARCHIVE_DB)
-                # فیلتر کردن برای ۷ روز گذشته
-                df_all['Date'] = pd.to_datetime(df_all['Date'])
-                last_week = datetime.now() - timedelta(days=7)
-                df_weekly = df_all[df_all['Date'] >= last_week]
-                
-                st.subheader("Orders from Last 7 Days")
-                st.dataframe(df_weekly, use_container_width=True)
-                st.download_button("Download Weekly Report (CSV)", df_weekly.to_csv(index=False), "SandView_Weekly.csv")
-        
+                st.dataframe(df_all, use_container_width=True)
         with t2:
-            st.subheader("Change Access Passwords")
-            new_staff = st.text_input("New Staff Password", value=settings["staff_pwd"])
-            new_admin = st.text_input("New Manager Password", value=settings["admin_pwd"])
+            ns = st.text_input("New Staff PWD", value=settings["staff_pwd"])
+            na = st.text_input("New Admin PWD", value=settings["admin_pwd"])
             if st.button("Update Passwords"):
-                save_settings({"staff_pwd": new_staff, "admin_pwd": new_admin})
-                st.success("Passwords updated successfully!")
+                save_settings({"staff_pwd": ns, "admin_pwd": na})
+                st.success("Updated!")
