@@ -76,7 +76,7 @@ if 'last_order_count' not in st.session_state: st.session_state.last_order_count
 
 # --- ۵. سایدبار و امضای توسعه‌دهنده ---
 with st.sidebar:
-    st.image("logo.png", width=150) # جایگزین لوگو
+    st.image("logo.png", width=200) # جایگزین لوگو
     st.markdown("<h2 style='text-align:center;'>Sand View AI</h2>", unsafe_allow_html=True)
     page = st.radio("Navigation", ["Guest Experience", "Digital Menu", "Staff Dashboard", "Management Reports"])
     
