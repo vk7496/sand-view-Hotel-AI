@@ -8,9 +8,10 @@ import random
 import string
 import json
 import pytz
+import base64
 
 # --- 1. CONFIGURATION & TIMEZONE ---
-st.set_page_config(page_title="Sand View Hotel | AI Hub", layout="wide")
+st.set_page_config(page_title="Sand View Hotel | Reception Hub", layout="wide")
 oman_tz = pytz.timezone('Asia/Muscat')
 
 LIVE_DB = "orders_live.csv"
@@ -38,7 +39,17 @@ def save_order_robust(order_dict, target_file):
         writer = csv.DictWriter(f, fieldnames=["ID", "Date", "Time", "Room", "Guest", "Request"])
         writer.writerow(order_dict)
 
-# --- 3. UI/UX STYLING (Responsive & Glassmorphism) ---
+# --- 3. NOTIFICATION SOUND (HTML/JS) ---
+def play_notification():
+    # یک صدای کوتاه برای اطلاع‌رسانی سفارش جدید
+    audio_url = "https://www.soundjay.com/buttons/beep-07a.mp3"
+    st.markdown(f"""
+        <audio autoplay>
+            <source src="{audio_url}" type="audio/mpeg">
+        </audio>
+    """, unsafe_allow_html=True)
+
+# --- 4. LUXURY UI & WHITE TEXT STYLING ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -46,108 +57,135 @@ st.markdown(f"""
         background-size: cover; background-attachment: fixed;
     }}
     [data-testid="stSidebar"] {{ background-color: rgba(28, 45, 102, 0.95) !important; backdrop-filter: blur(15px); }}
+    
+    /* سفید کردن نوشته‌ها در داشبورد */
+    h1, h2, h3, p, span, label {{ color: white !important; text-shadow: 1px 1px 3px black; }}
+    
     .order-card-live {{
         background: rgba(255, 255, 255, 0.98); padding: 20px; border-radius: 12px;
-        border-left: 10px solid #d4b996; color: #1c2d66; margin-bottom: 15px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        border-left: 10px solid #d4b996; color: #1c2d66 !important; margin-bottom: 15px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.3);
     }}
-    .id-badge {{ background-color: #d4b996; color: white; padding: 3px 10px; border-radius: 6px; font-weight: bold; }}
-    .footer-custom {{
-        position: fixed; bottom: 15px; right: 25px; color: white;
-        font-size: 0.9rem; text-shadow: 2px 2px 4px black; z-index: 999;
+    .order-card-live * {{ color: #1c2d66 !important; text-shadow: none !important; }}
+    
+    .id-badge {{ background-color: #d4b996; color: white !important; padding: 3px 10px; border-radius: 6px; font-weight: bold; }}
+    
+    .footer-signature {{
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        text-align: center; color: white !important; font-size: 1rem;
+        font-weight: bold; text-shadow: 2px 2px 5px black; z-index: 1000;
+        background: rgba(0,0,0,0.3); padding: 5px 20px; border-radius: 30px;
     }}
-    @media (max-width: 640px) {{
-        .footer-custom {{ position: relative; text-align: center; right: 0; color: #eee; margin-top: 30px; }}
-    }}
+    
+    .menu-item {{ background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-bottom: 5px; border: 1px solid rgba(255,255,255,0.2); }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. INITIALIZATION ---
+# --- 5. INITIALIZATION ---
 settings = load_settings()
 if 'user_data' not in st.session_state: st.session_state.user_data = None
 if 'chat_history' not in st.session_state: st.session_state.chat_history = []
+if 'last_order_count' not in st.session_state: st.session_state.last_order_count = 0
 
 with st.sidebar:
     st.image("logo.png")
-    st.markdown("<h2 style='text-align:center; color:white;'>Sand View AI</h2>", unsafe_allow_html=True)
-    page = st.radio("Menu", ["Guest Experience", "Staff Dashboard", "Management Reports"])
+    st.markdown("<h2 style='text-align:center;'>Sand View AI</h2>", unsafe_allow_html=True)
+    page = st.radio("Navigation", ["Guest Experience", "Digital Menu", "Staff Dashboard", "Management"])
 
-# --- 5. PAGE 1: GUEST EXPERIENCE ---
+# --- 6. PAGE: GUEST EXPERIENCE ---
 if page == "Guest Experience":
     if not st.session_state.user_data:
-        st.markdown("<h1 style='color:white; text-shadow:2px 2px 15px black; font-size:4rem;'>Welcome to Sand View</h1>", unsafe_allow_html=True)
-        col_log, _ = st.columns([1.5, 1])
-        with col_log:
+        st.markdown("<h1 style='font-size:4rem;'>Sand View Hotel</h1>", unsafe_allow_html=True)
+        col1, _ = st.columns([1.5, 1])
+        with col1:
             u_name = st.text_input("Full Name")
             u_room = st.text_input("Room #")
-            if st.button("Start AI Experience"):
+            if st.button("Start My Stay"):
                 if u_name and u_room:
                     st.session_state.user_data = {"name": u_name, "room": u_room}
                     st.balloons()
-                    st.success(f"Welcome {u_name}! We are delighted to have you in room {u_room}. Our AI concierge is ready to assist you.")
                     st.rerun()
     else:
-        st.markdown(f"<h3 style='color:white;'>Enjoy your stay, {st.session_state.user_data['name']}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3>Welcome, {st.session_state.user_data['name']}</h3>", unsafe_allow_html=True)
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]): st.write(msg["content"])
 
-        if prompt := st.chat_input("Ask for water, a taxi, or room service..."):
+        if prompt := st.chat_input("How can we help?"):
             st.session_state.chat_history.append({"role": "user", "content": prompt})
-            is_req = any(w in prompt.lower() for w in ['want', 'need', 'order', 'bring', 'taxi', 'water', 'towel', 'clean', 'food', 'breakfast'])
-
+            is_req = any(w in prompt.lower() for w in ['want', 'need', 'order', 'bring', 'taxi', 'water', 'food', 'coffee', 'juice'])
+            
             try:
                 client = Groq(api_key=st.secrets["GROQ_API_KEY"])
                 res = client.chat.completions.create(
                     model="llama-3.1-8b-instant",
-                    messages=[{"role": "system", "content": "Hotel AI. Be polite and confirm services."}, {"role": "user", "content": prompt}]
+                    messages=[{"role": "system", "content": "You are a hotel concierge. Confirm requests."}, {"role": "user", "content": prompt}]
                 )
                 ai_msg = res.choices[0].message.content
-            except: ai_msg = "Your request has been received and the staff is notified."
+            except: ai_msg = "Request received! Staff notified."
 
             if is_req:
                 order_id = generate_order_id()
-                ai_msg += f"\n\n**✅ ID: {order_id} (Staff Notified)**"
-                now_oman = datetime.now(oman_tz)
-                record = {"ID": order_id, "Date": now_oman.strftime("%Y-%m-%d"), "Time": now_oman.strftime("%H:%M"), "Room": st.session_state.user_data['room'], "Guest": st.session_state.user_data['name'], "Request": prompt}
-                save_order_robust(record, LIVE_DB)
-                save_order_robust(record, ARCHIVE_DB)
-                st.toast(f"Request {order_id} Registered!", icon="🛎️")
+                ai_msg += f"\n\n**✅ ID: {order_id}**"
+                now_o = datetime.now(oman_tz)
+                save_order_robust({"ID": order_id, "Date": now_o.strftime("%Y-%m-%d"), "Time": now_o.strftime("%H:%M"), "Room": st.session_state.user_data['room'], "Guest": st.session_state.user_data['name'], "Request": prompt}, LIVE_DB)
+                save_order_robust({"ID": order_id, "Date": now_o.strftime("%Y-%m-%d"), "Time": now_o.strftime("%H:%M"), "Room": st.session_state.user_data['room'], "Guest": st.session_state.user_data['name'], "Request": prompt}, ARCHIVE_DB)
+                st.toast("Order sent to reception!")
 
             st.session_state.chat_history.append({"role": "assistant", "content": ai_msg})
             st.rerun()
 
-# --- 6. PAGE 2: STAFF DASHBOARD ---
+# --- 7. PAGE: DIGITAL MENU ---
+elif page == "Digital Menu":
+    st.markdown("<h1>📖 Digital Menu</h1>", unsafe_allow_html=True)
+    col_c, col_r = st.columns(2)
+    with col_c:
+        st.subheader("☕ Cafe")
+        st.markdown('<div class="menu-item">Omani Coffee - 1.500 OMR</div>', unsafe_allow_html=True)
+        st.markdown('<div class="menu-item">Fresh Apple Juice - 2.000 OMR</div>', unsafe_allow_html=True)
+        st.markdown('<div class="menu-item">Cappuccino - 1.800 OMR</div>', unsafe_allow_html=True)
+    with col_r:
+        st.subheader("🍽️ Restaurant")
+        st.markdown('<div class="menu-item">Grilled Seafood - 8.500 OMR</div>', unsafe_allow_html=True)
+        st.markdown('<div class="menu-item">Club Sandwich - 3.500 OMR</div>', unsafe_allow_html=True)
+        st.markdown('<div class="menu-item">Mezze Platter - 4.000 OMR</div>', unsafe_allow_html=True)
+
+# --- 8. PAGE: STAFF DASHBOARD (RECEPTION) ---
 elif page == "Staff Dashboard":
-    st.markdown("<h1 style='color:white;'>🛎️ Live Orders</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>🛎️ Live Reception Desk</h1>", unsafe_allow_html=True)
     if st.text_input("Staff Password", type="password") == settings["staff_pwd"]:
         if os.path.exists(LIVE_DB):
             df_live = pd.read_csv(LIVE_DB)
+            
+            # چک کردن برای سفارش جدید و پخش صدا
+            if len(df_live) > st.session_state.last_order_count:
+                play_notification()
+                st.session_state.last_order_count = len(df_live)
+            
             if df_live.empty: st.info("No active requests.")
             else:
                 for i, row in df_live.iterrows():
-                    st.markdown(f"""<div class="order-card-live"><span class="id-badge">{row['ID']}</span> <strong>Room {row['Room']}</strong><br>Guest: {row['Guest']}<br>Request: {row['Request']}<br><small>Time: {row['Time']} (Oman)</small></div>""", unsafe_allow_html=True)
-                    if st.button(f"Mark Completed {row['ID']}", key=f"btn_{row['ID']}"):
+                    st.markdown(f"""<div class="order-card-live"><span class="id-badge">{row['ID']}</span> <strong>Room {row['Room']}</strong><br>Guest: {row['Guest']}<br>Request: {row['Request']}<br><small>Oman Time: {row['Time']}</small></div>""", unsafe_allow_html=True)
+                    if st.button(f"Mark Completed {row['ID']}", key=f"rec_{row['ID']}"):
                         pd.read_csv(LIVE_DB).drop(i).to_csv(LIVE_DB, index=False)
+                        st.session_state.last_order_count -= 1
                         st.rerun()
-    elif st.button("Change Password"): st.info("Only Manager can update passwords.")
+        
+        # رفرش خودکار هر ۳۰ ثانیه برای چک کردن سفارشات جدید
+        # st.empty() # Placeholder for future auto-refresh logic if needed
 
-# --- 7. PAGE 3: MANAGEMENT ---
+# --- 9. PAGE: MANAGEMENT ---
 elif page == "Management Reports":
-    st.markdown("<h1 style='color:white;'>📊 Management Hub</h1>", unsafe_allow_html=True)
-    if st.text_input("Manager Password", type="password") == settings["admin_pwd"]:
-        t1, t2 = st.tabs(["Performance History", "Security Panel"])
-        with t1:
-            if os.path.exists(ARCHIVE_DB):
-                df_arch = pd.read_csv(ARCHIVE_DB)
-                st.dataframe(df_arch, use_container_width=True)
-                st.download_button("Download Full History", df_arch.to_csv(index=False), "SandView_Report.csv")
-        with t2:
-            st.subheader("System Access Control")
-            new_s = st.text_input("Staff Password", value=settings["staff_pwd"])
-            new_a = st.text_input("Manager Password", value=settings["admin_pwd"])
-            if st.button("Update Passwords"):
-                save_settings({"staff_pwd": new_s, "admin_pwd": new_a})
-                st.success("Passwords updated successfully!")
+    st.markdown("<h1>📊 Management</h1>", unsafe_allow_html=True)
+    if st.text_input("Admin Password", type="password") == settings["admin_pwd"]:
+        tab1, tab2 = st.tabs(["History", "Security"])
+        with tab1:
+            st.dataframe(pd.read_csv(ARCHIVE_DB), use_container_width=True)
+        with tab2:
+            ns = st.text_input("New Staff PWD", value=settings["staff_pwd"])
+            na = st.text_input("New Admin PWD", value=settings["admin_pwd"])
+            if st.button("Save Settings"):
+                save_settings({"staff_pwd": ns, "admin_pwd": na})
+                st.success("Updated!")
 
-# --- FOOTER ---
-st.markdown('<div class="footer-custom">Prepared by vista kaviani _AI solutions developer</div>', unsafe_allow_html=True)
+# --- FOOTER SIGNATURE ---
+st.markdown('<div class="footer-signature">Prepared by vista kaviani _AI solutions developer<br>Vistakavianii@gmail.com</div>', unsafe_allow_html=True)
