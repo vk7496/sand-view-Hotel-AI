@@ -87,7 +87,7 @@ with st.sidebar:
     <div class="sidebar-footer">
         Developed by:<br>
         <span style="color:white; font-size:1.1rem; font-weight:bold;">Vista Kaviani</span><br>
-        <span style="font-size:0.8rem;">AI Solutions Developer vistakavianii@gmail.com</span>
+        <span style="font-size:0.8rem;">AI Solutions Developer  -vistakavianii@gmail.com</span>
     </div>
     """, unsafe_allow_html=True)
 
