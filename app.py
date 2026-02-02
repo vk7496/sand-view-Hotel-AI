@@ -155,14 +155,51 @@ if page == "Guest Experience":
             st.session_state.chat_history.append({"role": "assistant", "content": ai_msg})
             st.rerun()
 
-# --- ۷. منوی دیجیتال ---
+# --- ۷. منوی دیجیتال (نسخه سفید پررنگ و شیک) ---
 elif page == "Digital Menu":
-    st.markdown("<h1>📖 Digital Menu</h1>", unsafe_allow_html=True)
-    st.write("Browse and ask the AI to order for you!")
-    st.table(pd.DataFrame({
-        "Item": ["Fresh Coconut", "Club Sandwich", "Omani Coffee", "Laundry Service"],
-        "Price": ["2.5 OMR", "4.0 OMR", "1.5 OMR", "Varied"]
-    }))
+    st.markdown("<h1 style='text-align:center; margin-bottom:30px;'>📖 Our Digital Menu</h1>", unsafe_allow_html=True)
+    
+    col_m1, col_m2 = st.columns(2)
+    
+    with col_m1:
+        st.markdown("""
+        <div class="menu-card-white">
+            <h3>☕ Beverages & Coffee</h3>
+            <div class="menu-item"><span>Omani Kahwa</span> <span>1.500 OMR</span></div>
+            <div class="menu-item"><span>Fresh Mint Lemonade</span> <span>2.200 OMR</span></div>
+            <div class="menu-item"><span>Signature Iced Latte</span> <span>2.500 OMR</span></div>
+            <div class="menu-item"><span>Assortment of Teas</span> <span>1.200 OMR</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="menu-card-white">
+            <h3>🍳 Breakfast (7AM - 11AM)</h3>
+            <div class="menu-item"><span>Continental Breakfast</span> <span>4.500 OMR</span></div>
+            <div class="menu-item"><span>Shakshuka Specialty</span> <span>3.800 OMR</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_m2:
+        st.markdown("""
+        <div class="menu-card-white">
+            <h3>🍽️ Main Courses</h3>
+            <div class="menu-item"><span>Grilled Sea Bass</span> <span>9.500 OMR</span></div>
+            <div class="menu-item"><span>Beef Tenderloin</span> <span>11.000 OMR</span></div>
+            <div class="menu-item"><span>Saffron Chicken Mandi</span> <span>6.500 OMR</span></div>
+            <div class="menu-item"><span>Vegetarian Pasta</span> <span>5.200 OMR</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("""
+        <div class="menu-card-white">
+            <h3>🍰 Desserts</h3>
+            <div class="menu-item"><span>Date Cake with Toffee</span> <span>3.000 OMR</span></div>
+            <div class="menu-item"><span>Fruit Platter</span> <span>2.500 OMR</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<p style='text-align:center; background:rgba(28, 45, 102, 0.8); padding:10px; border-radius:10px;'>💡 <i>Tip: You can order any of these items directly by chatting with our AI!</i></p>", unsafe_allow_html=True)
 
 # --- ۸. داشبورد پذیرش (Staff Hub) ---
 elif page == "Staff Dashboard":
