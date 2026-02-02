@@ -79,15 +79,15 @@ if 'last_count' not in st.session_state: st.session_state.last_count = 0
 
 # --- ۵. سایدبار و لوگو ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2983/2983973.png", width=100) # لوگو هتل
+    st.image("logo.png", width=200) # لوگو هتل
     st.markdown("<h2 style='text-align:center;'>Sand View AI</h2>", unsafe_allow_html=True)
     page = st.radio("Menu", ["Guest Experience", "Digital Menu", "Staff Dashboard", "Management"])
     
     st.markdown(f"""
     <div class="sidebar-footer">
-        Developed with ❤️ by:<br>
+        Developed by:<br>
         <span style="color:white; font-size:1.1rem; font-weight:bold;">Vista Kaviani</span><br>
-        <span style="font-size:0.8rem;">AI Solutions Developer</span>
+        <span style="font-size:0.8rem;">AI Solutions Developer vistakavianii@gmail.com</span>
     </div>
     """, unsafe_allow_html=True)
 
